@@ -101,51 +101,35 @@ const AdminInquiries: React.FC = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-white/5 bg-white/[0.02]">
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Inquiry Source</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Message Content</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Timestamp</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Governance</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Name</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Email</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Message</th>
+                  <th className="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
                 {filteredInquiries.length > 0 ? (
                   filteredInquiries.map((inquiry) => (
                     <tr key={inquiry.id} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="px-8 py-5 whitespace-nowrap overflow-hidden max-w-[200px]">
+                      <td className="px-8 py-5 whitespace-nowrap overflow-hidden max-w-[250px]">
                         <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-white/5 flex items-center justify-center text-indigo-400 font-black text-lg group-hover:scale-110 transition-transform shrink-0">
+                          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-white/5 flex items-center justify-center text-indigo-400 font-black text-sm group-hover:scale-110 transition-transform shrink-0">
                             {inquiry.name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="overflow-hidden">
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-black text-white truncate">{inquiry.name}</div>
-                              {inquiry.name.toLowerCase().includes('epic') && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest shrink-0">Epic Lead</span>
-                              )}
-                            </div>
-                            <div className="text-xs text-slate-500 font-medium truncate">{inquiry.email}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-white truncate">{inquiry.name}</span>
+                            {inquiry.name.toLowerCase().includes('epic') && (
+                              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest shrink-0">Epic</span>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-5 max-w-[300px]">
-                        <div className="text-sm text-slate-400 font-medium line-clamp-1 group-hover:line-clamp-none transition-all cursor-default break-words">
+                      <td className="px-8 py-5 whitespace-nowrap max-w-[250px]">
+                        <div className="text-sm text-slate-400 font-medium truncate">{inquiry.email}</div>
+                      </td>
+                      <td className="px-8 py-5 max-w-[400px]">
+                        <div className="text-sm text-slate-300 font-medium line-clamp-2 group-hover:line-clamp-none transition-all cursor-default break-words leading-relaxed">
                           {inquiry.message}
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className="text-xs text-slate-500 font-mono tracking-tighter">{inquiry.date}</div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className={`h-2 w-2 rounded-full ${inquiry.status === 'new' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' :
-                            inquiry.status === 'read' ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]' : 'bg-slate-700'
-                            }`}></span>
-                          <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${inquiry.status === 'new' ? 'text-emerald-400' :
-                            inquiry.status === 'read' ? 'text-indigo-400' : 'text-slate-500'
-                            }`}>
-                            {inquiry.status}
-                          </span>
                         </div>
                       </td>
                       <td className="px-8 py-5 whitespace-nowrap text-right">

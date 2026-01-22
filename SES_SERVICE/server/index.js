@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.5' });
+  res.json({ status: 'Server is running', version: '1.0.6' });
 });
 
 // Login Endpoint
@@ -203,62 +203,91 @@ app.post('/api/webhook', async (req, res) => {
         // Elementor puts fields inside "form_fields", others might put them at root
         const fields = webhookData.form_fields || webhookData.data || webhookData;
 
-        // Helper function to find field by keyword (Key Match)
-        const findFieldByKey = (obj, keywords) => {
-          if (!obj) return null;
+        // Helper to extract actual string value from a potential Elementor field object
+        const extractValue = (field) => {
+          if (!field) return null;
+          if (typeof field === 'string') return field;
+          if (typeof field === 'object' && field.value !== undefined) return String(field.value);
+          return JSON.stringify(field); // Fallback
+        };
+
+        // Helper to check if a field matches a keyword (by Key or Title)
+        const isFieldMatch = (key, field, keywords) => {
           const searchKeys = Array.isArray(keywords) ? keywords : [keywords];
-          const keys = Object.keys(obj);
-          for (const keyword of searchKeys) {
-            if (obj[keyword]) return obj[keyword];
-            const matchKey = keys.find(k => k.toLowerCase().includes(keyword.toLowerCase()));
-            if (matchKey) return obj[matchKey];
+          const lowerKey = key.toLowerCase();
+
+          // Check Key
+          if (searchKeys.some(k => lowerKey.includes(k.toLowerCase()))) return true;
+
+          // Check Title (if Elementor object)
+          if (typeof field === 'object' && field.title) {
+            const lowerTitle = field.title.toLowerCase();
+            if (searchKeys.some(k => lowerTitle.includes(k.toLowerCase()))) return true;
           }
-          return null;
+
+          return false;
         };
 
-        // Helper function to find field by value content (Value Match)
-        const findFieldByValueContent = (obj, type) => {
-          if (!obj) return null;
-          const values = Object.values(obj);
-          for (const val of values) {
-            if (typeof val !== 'string') continue;
-
-            if (type === 'email' && val.includes('@') && val.includes('.')) {
-              return val; // It looks like an email
-            }
-            // Add more heuristics if needed
-          }
-          return null;
+        // Helper to check value content
+        const isContentMatch = (field, type) => {
+          const val = extractValue(field);
+          if (!val) return false;
+          if (type === 'email' && val.includes('@') && val.includes('.')) return true;
+          return false;
         };
 
-        // Smart Field Detection Strategy
+        // Smart Extraction Logic
+        let name = null;
+        let email = null;
+        let message = null;
 
-        // 1. Find Email (Crucial)
-        // First try header/key matching
-        let email = findFieldByKey(fields, ['email', 'mail', 'e-mail']);
-        // If not found, look for ANY field that looks like an email address (e.g. field_1: "test@gmail.com")
+        // Iterate through all fields to identify them
+        for (const [key, field] of Object.entries(fields)) {
+          // 1. Identify Email
+          if (!email && (isFieldMatch(key, field, ['email', 'mail', 'e-mail']) || isContentMatch(field, 'email'))) {
+            email = extractValue(field);
+            continue;
+          }
+
+          // 2. Identify Name
+          if (!name && isFieldMatch(key, field, ['name', 'fullname', 'user', 'first_name', 'client'])) {
+            name = extractValue(field);
+            continue;
+          }
+
+          // 3. Identify Message
+          if (!message && isFieldMatch(key, field, ['message', 'msg', 'comment', 'query', 'body', 'text'])) {
+            message = extractValue(field);
+            continue;
+          }
+        }
+
+        // Final Fallbacks mechanism if fields are not identified by key/title
+        const fieldValues = Object.values(fields).map(extractValue).filter(v => v); // All string values
+
         if (!email) {
-          email = findFieldByValueContent(fields, 'email');
+          // Find any value that looks like an email
+          email = fieldValues.find(v => v.includes('@') && v.includes('.'));
         }
 
         if (email) {
-          // 2. Find Name
-          let name = findFieldByKey(fields, ['name', 'fullname', 'user', 'first_name', 'client']);
-
-          // 3. Find Message
-          let message = findFieldByKey(fields, ['message', 'msg', 'comment', 'query', 'body', 'text']);
-
-          // Fallback: If name/message still distinct from keys, try to obtain from remaining fields
-          // (Simple heuristic: If we have email, other short string might be name, long string might be message)
-          if (!name || !message) {
-            const remainingValues = Object.values(fields).filter(v => v !== email && typeof v === 'string');
-            if (!name && remainingValues.length > 0) name = remainingValues[0]; // First remaining field
-            if (!message && remainingValues.length > 1) message = remainingValues[1]; // Second remaining field
+          // If name still missing, try to find a suitable string that is NOT the email and NOT the message
+          if (!name) {
+            const potentialNames = fieldValues.filter(v => v !== email && v !== message && v.length < 50);
+            if (potentialNames.length > 0) name = potentialNames[0];
+            else name = email.split('@')[0];
           }
 
-          // Final Fallbacks
-          if (!name && typeof email === 'string') name = email.split('@')[0];
-          if (!message) message = 'Message received via Webhook';
+          // If message still missing, pick the longest remaining string
+          if (!message) {
+            const potentialMessages = fieldValues.filter(v => v !== email && v !== name);
+            if (potentialMessages.length > 0) {
+              // Pick the longest one assuming it's the message
+              message = potentialMessages.sort((a, b) => b.length - a.length)[0];
+            } else {
+              message = 'Message received via Webhook';
+            }
+          }
 
           const newInquiry = new Inquiry({
             name: String(name),
@@ -269,7 +298,7 @@ app.post('/api/webhook', async (req, res) => {
           });
 
           await newInquiry.save();
-          console.log('✨ Webhook automatically converted to Inquiry (Super Smart Match)');
+          console.log('✨ Webhook automatically converted to Inquiry (Elementor Smart Match)');
         }
       } catch (conversionError) {
         console.error('⚠️ Failed to convert webhook to inquiry:', conversionError);

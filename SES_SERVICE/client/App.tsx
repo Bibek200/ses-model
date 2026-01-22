@@ -6,6 +6,7 @@ import SolutionsPage from './components/SolutionsPage';
 import PricingPage from './components/PricingPage';
 import AdminLayout from './components/AdminLayout';
 import AdminWebhook from './components/AdminWebhook';
+import AdminWebhookLogs from './components/AdminWebhookLogs';
 import AdminInquiries from './components/AdminInquiries';
 import { userService } from './lib/api';
 
@@ -45,6 +46,7 @@ const App: React.FC = () => {
         >
           <Route index element={<Navigate to="/admin/inquiries" replace />} />
           <Route path="webhook" element={<ProtectedRoute element={<AdminWebhook />} />} />
+          <Route path="webhook-logs" element={<ProtectedRoute element={<AdminWebhookLogs />} />} />
           <Route path="inquiries" element={<ProtectedRoute element={<AdminInquiries />} />} />
         </Route>
 

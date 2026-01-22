@@ -44,6 +44,7 @@ const AdminLayout: React.FC = () => {
 
   const getPageTitle = () => {
     const path = location.pathname;
+    if (path.includes('webhook-logs')) return 'Webhook Activity Logs';
     if (path.includes('webhook')) return 'Webhook Settings';
     if (path.includes('inquiries')) return 'Customer Inquiries';
     return 'Dashboard';
@@ -92,23 +93,43 @@ const AdminLayout: React.FC = () => {
           </NavLink>
 
           {isAdmin && (
-            <NavLink
-              to="/admin/webhook"
-              className={({ isActive }) =>
-                `flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive ? 'bg-indigo-600/10 border border-indigo-500/20' : 'hover:bg-white/5 border border-transparent'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div className="flex items-center gap-3.5">
-                    <Settings className={`h-5 w-5 ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                    <span className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Webhook Setup</span>
-                  </div>
-                  {isActive && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>}
-                </>
-              )}
-            </NavLink>
+            <>
+              <NavLink
+                to="/admin/webhook"
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive ? 'bg-indigo-600/10 border border-indigo-500/20' : 'hover:bg-white/5 border border-transparent'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="flex items-center gap-3.5">
+                      <Settings className={`h-5 w-5 ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                      <span className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Webhook Setup</span>
+                    </div>
+                    {isActive && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>}
+                  </>
+                )}
+              </NavLink>
+
+              <NavLink
+                to="/admin/webhook-logs"
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive ? 'bg-indigo-600/10 border border-indigo-500/20' : 'hover:bg-white/5 border border-transparent'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="flex items-center gap-3.5">
+                      <Activity className={`h-5 w-5 ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                      <span className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Webhook Logs</span>
+                    </div>
+                    {isActive && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>}
+                  </>
+                )}
+              </NavLink>
+            </>
           )}
 
           <NavLink

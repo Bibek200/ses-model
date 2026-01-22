@@ -112,22 +112,24 @@ const AdminInquiries: React.FC = () => {
                 {filteredInquiries.length > 0 ? (
                   filteredInquiries.map((inquiry) => (
                     <tr key={inquiry.id} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="px-8 py-5 whitespace-nowrap">
+                      <td className="px-8 py-5 whitespace-nowrap overflow-hidden max-w-[200px]">
                         <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-white/5 flex items-center justify-center text-indigo-400 font-black text-lg group-hover:scale-110 transition-transform">
+                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-white/5 flex items-center justify-center text-indigo-400 font-black text-lg group-hover:scale-110 transition-transform shrink-0">
                             {inquiry.name.charAt(0).toUpperCase()}
                           </div>
-                          <div>
+                          <div className="overflow-hidden">
                             <div className="flex items-center gap-2">
-                              <div className="text-sm font-black text-white">{inquiry.name}</div>
-                              <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest">Epic Lead</span>
+                              <div className="text-sm font-black text-white truncate">{inquiry.name}</div>
+                              {inquiry.name.toLowerCase().includes('epic') && (
+                                <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest shrink-0">Epic Lead</span>
+                              )}
                             </div>
-                            <div className="text-xs text-slate-500 font-medium">{inquiry.email}</div>
+                            <div className="text-xs text-slate-500 font-medium truncate">{inquiry.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-5">
-                        <div className="text-sm text-slate-400 max-w-sm font-medium line-clamp-1 group-hover:line-clamp-none transition-all cursor-default">
+                      <td className="px-8 py-5 max-w-[300px]">
+                        <div className="text-sm text-slate-400 font-medium line-clamp-1 group-hover:line-clamp-none transition-all cursor-default break-words">
                           {inquiry.message}
                         </div>
                       </td>

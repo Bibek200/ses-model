@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.6' });
+  res.json({ status: 'Server is running', version: '1.0.7' });
 });
 
 // Login Endpoint
@@ -208,11 +208,15 @@ app.post('/api/webhook', async (req, res) => {
           if (!field) return null;
           if (typeof field === 'string') return field;
           if (typeof field === 'object' && field.value !== undefined) return String(field.value);
-          return JSON.stringify(field); // Fallback
+          // If it's an object but not a specific field value, it might be metadata we want to ignore
+          return null;
         };
 
         // Helper to check if a field matches a keyword (by Key or Title)
         const isFieldMatch = (key, field, keywords) => {
+          // Explicitly ignore known metadata keys
+          if (['form', 'meta', 'fields'].includes(key.toLowerCase())) return false;
+
           const searchKeys = Array.isArray(keywords) ? keywords : [keywords];
           const lowerKey = key.toLowerCase();
 
@@ -243,6 +247,9 @@ app.post('/api/webhook', async (req, res) => {
 
         // Iterate through all fields to identify them
         for (const [key, field] of Object.entries(fields)) {
+          // Skip if key is explicitly 'form' or 'meta' (Elementor specific)
+          if (key === 'form' || key === 'meta') continue;
+
           // 1. Identify Email
           if (!email && (isFieldMatch(key, field, ['email', 'mail', 'e-mail']) || isContentMatch(field, 'email'))) {
             email = extractValue(field);
@@ -263,7 +270,10 @@ app.post('/api/webhook', async (req, res) => {
         }
 
         // Final Fallbacks mechanism if fields are not identified by key/title
-        const fieldValues = Object.values(fields).map(extractValue).filter(v => v); // All string values
+        const fieldValues = Object.entries(fields)
+          .filter(([k]) => k !== 'form' && k !== 'meta') // Filter out metadata keys
+          .map(([, v]) => extractValue(v))
+          .filter(v => v); // All string values
 
         if (!email) {
           // Find any value that looks like an email
@@ -298,7 +308,7 @@ app.post('/api/webhook', async (req, res) => {
           });
 
           await newInquiry.save();
-          console.log('✨ Webhook automatically converted to Inquiry (Elementor Smart Match)');
+          console.log('✨ Webhook automatically converted to Inquiry (Strict Elementor Parsing)');
         }
       } catch (conversionError) {
         console.error('⚠️ Failed to convert webhook to inquiry:', conversionError);

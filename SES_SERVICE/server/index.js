@@ -8,9 +8,21 @@ const { Inquiry, WebhookConfig, WebhookLog } = require('./models');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Middleware
-app.use(cors());
+// Middleware - Enhanced CORS for WordPress Elementor and external webhooks
+app.use(cors({
+  origin: '*', // Allow all origins (WordPress, Elementor, external services)
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: false,
+  optionsSuccessStatus: 200
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
+// Parse JSON and URL-encoded bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // MongoDB Connection
 let isMongoConnected = false;
@@ -141,13 +153,20 @@ app.patch('/api/inquiries/:id/status', async (req, res) => {
   }
 });
 
-// Webhook Receiver Endpoint - Receives data from external services
+// Webhook Receiver Endpoint - Receives data from external services (WordPress Elementor, etc.)
 app.post('/api/webhook', async (req, res) => {
   try {
     const webhookData = req.body;
     const timestamp = new Date();
 
-    console.log('📥 Webhook received:', JSON.stringify(webhookData, null, 2));
+    // Log detailed request information for debugging
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📥 Webhook received at:', timestamp.toISOString());
+    console.log('🌐 Origin:', req.headers.origin || 'No origin header');
+    console.log('🔗 Referer:', req.headers.referer || 'No referer');
+    console.log('📋 Content-Type:', req.headers['content-type']);
+    console.log('📦 Payload:', JSON.stringify(webhookData, null, 2));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Get webhook config to check if active and get admin email
     let config = fallbackData.webhookConfig;

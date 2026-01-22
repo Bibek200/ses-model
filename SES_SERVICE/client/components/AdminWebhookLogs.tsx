@@ -19,7 +19,8 @@ const AdminWebhookLogs: React.FC = () => {
             if (isRefresh) setRefreshing(true);
             else setLoading(true);
 
-            const response = await fetch('http://localhost:5001/api/webhook-logs');
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+            const response = await fetch(`${API_BASE_URL}/api/webhook-logs`);
             const result = await response.json();
 
             if (result.success) {
@@ -134,8 +135,8 @@ const AdminWebhookLogs: React.FC = () => {
                                         {/* Status and Time */}
                                         <div className="flex items-center gap-3">
                                             <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${log.status === 'success'
-                                                    ? 'bg-emerald-500/10 border border-emerald-500/20'
-                                                    : 'bg-red-500/10 border border-red-500/20'
+                                                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                                                : 'bg-red-500/10 border border-red-500/20'
                                                 }`}>
                                                 {log.status === 'success' ? (
                                                     <CheckCircle className="h-4 w-4 text-emerald-400" />

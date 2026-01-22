@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.7' });
+  res.json({ status: 'Server is running', version: '1.0.8' });
 });
 
 // Login Endpoint
@@ -200,8 +200,12 @@ app.post('/api/webhook', async (req, res) => {
       // 🔄 AUTO-CONVERSION: Create Inquiry from Webhook Data
       // This makes it show up in the "Inquiries" page
       try {
-        // Elementor puts fields inside "form_fields", others might put them at root
-        const fields = webhookData.form_fields || webhookData.data || webhookData;
+        // Elementor puts fields inside "form_fields", "fields", or "data".
+        // refined priority order to catch the actual data container
+        let fields = webhookData;
+        if (webhookData.form_fields) fields = webhookData.form_fields;
+        else if (webhookData.fields) fields = webhookData.fields; // PRIORITIZE THIS
+        else if (webhookData.data) fields = webhookData.data;
 
         // Helper to extract actual string value from a potential Elementor field object
         const extractValue = (field) => {

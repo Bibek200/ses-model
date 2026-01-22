@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.2' });
+  res.json({ status: 'Server is running', version: '1.0.3' });
 });
 
 // Login Endpoint
@@ -196,6 +196,30 @@ app.post('/api/webhook', async (req, res) => {
       });
       await log.save();
       console.log('✅ Webhook log saved to database');
+
+      // 🔄 AUTO-CONVERSION: Create Inquiry from Webhook Data
+      // This makes it show up in the "Inquiries" page
+      try {
+        // Elementor puts fields inside "form_fields", others might put them at root
+        const fields = webhookData.form_fields || webhookData.data || webhookData;
+
+        // Check if we have at least an email to create an inquiry
+        if (fields.email || fields.Email) {
+          const newInquiry = new Inquiry({
+            name: fields.name || fields.Name || 'Webhook User',
+            email: fields.email || fields.Email,
+            message: fields.message || fields.Message || 'Message received via Webhook',
+            date: new Date().toISOString().split('T')[0],
+            status: 'new'
+          });
+
+          await newInquiry.save();
+          console.log('✨ Webhook automatically converted to Inquiry');
+        }
+      } catch (conversionError) {
+        console.error('⚠️ Failed to convert webhook to inquiry:', conversionError);
+        // Don't fail the request, just log the error
+      }
     }
 
     // Send email notification to admin

@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running' });
+  res.json({ status: 'Server is running', version: '1.0.2' });
 });
 
 // Login Endpoint

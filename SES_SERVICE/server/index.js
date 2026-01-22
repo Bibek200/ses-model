@@ -8,6 +8,7 @@ const { Inquiry, WebhookConfig, WebhookLog } = require('./models');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Trigger redeploy - Fix WebhookLog schema validation issue
 // Middleware - Enhanced CORS for WordPress Elementor and external webhooks
 app.use(cors({
   origin: '*', // Allow all origins (WordPress, Elementor, external services)

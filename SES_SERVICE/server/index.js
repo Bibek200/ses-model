@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.4' });
+  res.json({ status: 'Server is running', version: '1.0.5' });
 });
 
 // Login Endpoint
@@ -203,37 +203,62 @@ app.post('/api/webhook', async (req, res) => {
         // Elementor puts fields inside "form_fields", others might put them at root
         const fields = webhookData.form_fields || webhookData.data || webhookData;
 
-        // Helper function to find field by keyword (case-insensitive fuzzy match)
-        const findField = (obj, keywords) => {
+        // Helper function to find field by keyword (Key Match)
+        const findFieldByKey = (obj, keywords) => {
           if (!obj) return null;
           const searchKeys = Array.isArray(keywords) ? keywords : [keywords];
           const keys = Object.keys(obj);
-
           for (const keyword of searchKeys) {
-            // Check exact match first
             if (obj[keyword]) return obj[keyword];
-
-            // Check case-insensitive partial match
             const matchKey = keys.find(k => k.toLowerCase().includes(keyword.toLowerCase()));
             if (matchKey) return obj[matchKey];
           }
           return null;
         };
 
-        // Smart Field Detection
-        // 1. Try to find Email (Crucial)
-        const email = findField(fields, ['email', 'mail', 'e-mail']);
+        // Helper function to find field by value content (Value Match)
+        const findFieldByValueContent = (obj, type) => {
+          if (!obj) return null;
+          const values = Object.values(obj);
+          for (const val of values) {
+            if (typeof val !== 'string') continue;
+
+            if (type === 'email' && val.includes('@') && val.includes('.')) {
+              return val; // It looks like an email
+            }
+            // Add more heuristics if needed
+          }
+          return null;
+        };
+
+        // Smart Field Detection Strategy
+
+        // 1. Find Email (Crucial)
+        // First try header/key matching
+        let email = findFieldByKey(fields, ['email', 'mail', 'e-mail']);
+        // If not found, look for ANY field that looks like an email address (e.g. field_1: "test@gmail.com")
+        if (!email) {
+          email = findFieldByValueContent(fields, 'email');
+        }
 
         if (email) {
-          // 2. Try to find Name (look for 'name', 'user', 'full', 'first')
-          let name = findField(fields, ['name', 'fullname', 'user', 'first_name', 'client']);
-          // Fallback: If no name found, use the part of email before @
-          if (!name && typeof email === 'string') name = email.split('@')[0];
+          // 2. Find Name
+          let name = findFieldByKey(fields, ['name', 'fullname', 'user', 'first_name', 'client']);
 
-          // 3. Try to find Message (look for 'message', 'msg', 'comment', 'text', 'note')
-          let message = findField(fields, ['message', 'msg', 'comment', 'query', 'body', 'text']);
-          // Fallback message
-          if (!message) message = 'Message received via Webhook (Field detection failed)';
+          // 3. Find Message
+          let message = findFieldByKey(fields, ['message', 'msg', 'comment', 'query', 'body', 'text']);
+
+          // Fallback: If name/message still distinct from keys, try to obtain from remaining fields
+          // (Simple heuristic: If we have email, other short string might be name, long string might be message)
+          if (!name || !message) {
+            const remainingValues = Object.values(fields).filter(v => v !== email && typeof v === 'string');
+            if (!name && remainingValues.length > 0) name = remainingValues[0]; // First remaining field
+            if (!message && remainingValues.length > 1) message = remainingValues[1]; // Second remaining field
+          }
+
+          // Final Fallbacks
+          if (!name && typeof email === 'string') name = email.split('@')[0];
+          if (!message) message = 'Message received via Webhook';
 
           const newInquiry = new Inquiry({
             name: String(name),
@@ -244,7 +269,7 @@ app.post('/api/webhook', async (req, res) => {
           });
 
           await newInquiry.save();
-          console.log('✨ Webhook automatically converted to Inquiry (Smart Match)');
+          console.log('✨ Webhook automatically converted to Inquiry (Super Smart Match)');
         }
       } catch (conversionError) {
         console.error('⚠️ Failed to convert webhook to inquiry:', conversionError);

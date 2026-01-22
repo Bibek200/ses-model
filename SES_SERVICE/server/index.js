@@ -53,7 +53,7 @@ const fallbackData = {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.3' });
+  res.json({ status: 'Server is running', version: '1.0.4' });
 });
 
 // Login Endpoint
@@ -203,18 +203,48 @@ app.post('/api/webhook', async (req, res) => {
         // Elementor puts fields inside "form_fields", others might put them at root
         const fields = webhookData.form_fields || webhookData.data || webhookData;
 
-        // Check if we have at least an email to create an inquiry
-        if (fields.email || fields.Email) {
+        // Helper function to find field by keyword (case-insensitive fuzzy match)
+        const findField = (obj, keywords) => {
+          if (!obj) return null;
+          const searchKeys = Array.isArray(keywords) ? keywords : [keywords];
+          const keys = Object.keys(obj);
+
+          for (const keyword of searchKeys) {
+            // Check exact match first
+            if (obj[keyword]) return obj[keyword];
+
+            // Check case-insensitive partial match
+            const matchKey = keys.find(k => k.toLowerCase().includes(keyword.toLowerCase()));
+            if (matchKey) return obj[matchKey];
+          }
+          return null;
+        };
+
+        // Smart Field Detection
+        // 1. Try to find Email (Crucial)
+        const email = findField(fields, ['email', 'mail', 'e-mail']);
+
+        if (email) {
+          // 2. Try to find Name (look for 'name', 'user', 'full', 'first')
+          let name = findField(fields, ['name', 'fullname', 'user', 'first_name', 'client']);
+          // Fallback: If no name found, use the part of email before @
+          if (!name && typeof email === 'string') name = email.split('@')[0];
+
+          // 3. Try to find Message (look for 'message', 'msg', 'comment', 'text', 'note')
+          let message = findField(fields, ['message', 'msg', 'comment', 'query', 'body', 'text']);
+          // Fallback message
+          if (!message) message = 'Message received via Webhook (Field detection failed)';
+
           const newInquiry = new Inquiry({
-            name: fields.name || fields.Name || 'Webhook User',
-            email: fields.email || fields.Email,
-            message: fields.message || fields.Message || 'Message received via Webhook',
+            name: String(name),
+            email: String(email),
+            message: String(message),
             date: new Date().toISOString().split('T')[0],
             status: 'new'
           });
 
           await newInquiry.save();
-          console.log('✨ Webhook automatically converted to Inquiry');
+          console.log('✨ Webhook automatically converted to Inquiry (Smart Match)');
         }
       } catch (conversionError) {
         console.error('⚠️ Failed to convert webhook to inquiry:', conversionError);

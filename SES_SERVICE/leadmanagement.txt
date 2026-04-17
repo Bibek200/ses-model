@@ -1,0 +1,352 @@
+# Product Requirements Document: Modular CRM (React/Node/Mongo) – **Executive Summary**
+
+This project builds a modern, API-first CRM for lead management, task tracking and customer communication, inspired by Leadmanage.in【53†L25-L33】【53†L49-L54】. The CRM’s scope covers lead capture and processing, task and reminder scheduling, user/role management, templates for email/WhatsApp, and integrations (webhooks, SMTP, third-party tools). It will be a secure, scalable, microservices-oriented system (React frontend, Node.js backend, MongoDB) enabling full automation via tools like n8n. Core goals include: capturing and converting leads efficiently, automating communications (emails/SMS/WhatsApp) with opt-in consent, and supporting growth with features phased from MVP to advanced modules (attendance, inventory). We assume a medium team (~6 engineers, 1 UX/QA each, 12-month schedule) and estimate a mid-tier custom CRM project (~4–8 months, $40–80K【51†L191-L199】). The following sections detail user roles, phased features, data models, APIs, workflows, WhatsApp integration, auth, infrastructure, security, CI/CD, and delivery plan.
+
+## 1. Project Scope & Goals  
+- **Scope:** Lead lifecycle (capture, follow-up, conversion), task management, reminders, user/role admin, templates (email/WhatsApp), basic reports. Integrations via webhooks/API, SMTP/email, plus n8n automations. Add-on modules (attendance, leave, orders/inventory) can be phased later【53†L72-L80】.  
+- **Goals:** Provide a flexible, modular CRM enabling sales teams to manage all leads/contacts in one place, automate routine actions (follow-ups, notifications) and integrate with marketing/communication tools. Key objectives are reliability, extensibility, and security (end-to-end TLS, data encryption, GDPR/CCPA compliance). Assume business continuity targets similar to SaaS SLAs (e.g. 99.9% uptime).  
+
+## 2. User Roles & Permissions  
+- **Roles:** Define at minimum **Admin**, **Manager**, **Salesperson/Agent**, and **Support**. Optionally, read-only or guest roles. Role-based access control ensures users see only permitted data【53†L42-L48】.  
+- **Permissions:**  
+  - *Admin* – full rights (manage users/roles, system settings, all data).  
+  - *Manager* – oversee teams (create/edit leads/tasks, reassign leads, view team reports).  
+  - *Sales Agent* – handle assigned leads/tasks, update statuses, create tasks and notes.  
+  - *Support* – optional role for customer service (view leads/accounts, respond to communications).  
+- **Auth:** Use JWT-based auth. Store tokens in secure httpOnly cookies【19†L25-L28】 or local storage (SPA) as appropriate. Sign JWTs with RS256 keys for multi-service scalability (public key verifiable)【17†L174-L182】. Support OAuth2 social logins (Google/Facebook) and enterprise SSO (SAML/OAuth) as options. Passwords hashed via bcrypt/argon2【17†L119-L127】. API endpoints check scopes/roles on each request. 
+
+## 3. Feature Set (Phased)  
+We organize development into five phases (0–4), each delivering incremental functionality. Feature coverage is guided by Leadmanage’s modules【53†L25-L33】【53†L49-L54】. 
+
+- **Phase 0: Core CRM (MVP, ~1–2 months)**  
+  - **User Auth & Onboarding:** Signup/login, password reset, role creation.  
+  - **Lead Management:** CRUD leads via web UI and REST API. Fields: name, contact, source, status, assigned user. Simple lead list UI with filters (status, source, user).  
+  - **Baseline UI/UX:** Responsive dashboards and lists (see example image below). Navigation for Leads and Tasks.  
+- **Phase 1: Task & Reminder Management (~2–3 months)**  
+  - **Tasks:** Create/update tasks, assign to users, categorize and label【53†L29-L33】. List and detail views showing related lead.   
+  - **Reminders:** Schedule one-time/recurring reminders for follow-ups and tasks【53†L35-L40】. Trigger notifications via email or in-app alerts.  
+  - **User/Roles:** Manage users (add, edit), assign roles, track user activity. Authorization flows (roles control access to lead lists, reports, etc).  
+- **Phase 2: Communication & Templates (~2 months)**  
+  - **Email Templates:** CRUD templates with drag-drop or markdown (subject/body)【53†L56-L64】. Placeholders for lead data.  
+  - **WhatsApp Templates:** CRUD templates for approved WhatsApp message templates (variables)【53†L63-L68】.  
+  - **Notifications:** Integrate SMTP (SendGrid/AWS SES) for emails, and WhatsApp Business API (via provider) for notifications.  
+  - **Triggering Rules:** Define simple automation rules (e.g. on lead status change, send template). n8n workflows (see §6).  
+- **Phase 3: Integrations & Automation (~2–3 months)**  
+  - **Webhooks/API Integration:** Public API endpoints for lead import (CSV upload), form capture (webhook)【53†L49-L54】. Pabbly/n8n connectors for third-party apps.  
+  - **Bulk Operations:** Bulk lead import, update (via CSV or API). Bulk email/WhatsApp campaigns via templates and lists.  
+  - **Analytics & Reports:** Basic dashboards (lead funnel, conversion rates, source performance). Export reports to CSV/PDF.  
+  - **Mobile / PWA (Optional):** Either responsive design for mobile or a thin React Native app for on-the-go lead capture.  
+- **Phase 4: Advanced Modules & Scaling (~1–2 months)**  
+  - **Attendance & Leave (Add-ons):** Tracking employee clock-in/out and leave requests【53†L72-L80】. (These were listed as addons on leadmanage.)  
+  - **Order/Sales:** (If relevant) Convert leads to customers and record orders/invoices. Integration with payment (Stripe/Razorpay) and inventory/ERP.  
+  - **High Availability:** Implement load balancing, DB replication, caching (Redis), container orchestration for scaling.  
+  - **Security & Compliance:** Finalize GDPR/ISO compliance features (data purge, consent logs, 2FA for critical roles).  
+  - **Optimization:** Performance tuning, code refactoring, interface polish.  
+
+**Key Feature Highlights:** Capturing leads from any source (web forms, manual entry, imported CSV)【53†L25-L33】; managing tasks linked to leads; setting reminders; template-based communication; user/activity logs. The system mirrors Leadmanage’s feature list (e.g. “New Leads, Lead Follow Up, Transfer Leads, Leads Allocation, Bulk Lead Import”【53†L25-L33】, tasks/categories/labels【53†L29-L33】, reminders【53†L35-L40】, and integrations【53†L49-L54】). 
+
+## 4. Data Models (ER Diagrams)  
+Core entities and relationships are modeled in MongoDB. An example ER diagram (Mermaid syntax) is shown below:
+
+```mermaid
+erDiagram
+    USER {
+        string id PK
+        string name
+        string email
+        string passwordHash
+    }
+    ROLE {
+        string id PK
+        string name
+        string permissions
+    }
+    LEAD {
+        string id PK
+        string name
+        string email
+        string phone
+        string status
+        date   createdAt
+        date   updatedAt
+    }
+    TASK {
+        string id PK
+        string title
+        string description
+        string status
+        date   dueDate
+    }
+    REMINDER {
+        string id PK
+        string type
+        datetime scheduledAt
+    }
+    EMAIL_TEMPLATE {
+        string id PK
+        string name
+        string subject
+        text   body
+    }
+    WHATSAPP_TEMPLATE {
+        string id PK
+        string name
+        string content
+    }
+
+    USER }|--|{ ROLE : "role" 
+    USER ||--o{ LEAD : "assigns"
+    USER ||--o{ TASK : "assigns"
+    USER ||--o{ REMINDER : "sets"
+    LEAD ||--|{ TASK : "contains"
+    TASK ||--o{ REMINDER : "has"
+    LEAD ||--o{ REMINDER : "has"
+    EMAIL_TEMPLATE ||--|{ USER : "created_by"
+    WHATSAPP_TEMPLATE ||--|{ USER : "created_by"
+```
+
+- **USER**: Stores login info and role FK. Each user has one ROLE; roles define permissions.  
+- **ROLE**: e.g. Admin, Manager, Sales, etc with associated scopes.  
+- **LEAD**: Core record with contact info, status (“New”, “Contacted”, “Won”, “Lost”, etc), assignment (userId), timestamps.  
+- **TASK**: Related to a lead or standalone; has title, status, due date, assignment.  
+- **REMINDER**: Scheduled notification tied to a lead or task (fields: type, date/time, message).  
+- **EMAIL_TEMPLATE, WHATSAPP_TEMPLATE**: Pre-defined message templates (with placeholder parameters) for outbound comms.  
+
+Relationships (1:M) link users to their leads, tasks, reminders. Collections may embed or reference (e.g. Task has leadId FK, but we show associations with arrows for clarity). Mongo’s flexible schema allows adding fields (e.g. custom tags or metadata) without DB migration. Index on common queries (lead.assignedUser, lead.status, user.email).
+
+## 5. API & GraphQL Endpoints  
+An API-first design exposes REST (and optionally GraphQL) endpoints. All endpoints are secured (JWT/OAuth2). Sample routes:
+
+- **Authentication**:  
+  - `POST /api/auth/signup` – create user (Admin only).  
+  - `POST /api/auth/login` – returns JWT.  
+- **Users/Roles**:  
+  - `GET /api/users` – list users (Admin).  
+  - `POST /api/users` – add user.  
+  - `PUT /api/users/{id}` – update profile/role.  
+  - `GET /api/roles` – list roles.  
+- **Leads**:  
+  - `GET /api/leads` – list leads (filter by status, user, source).  
+  - `POST /api/leads` – create new lead.  
+  - `GET /api/leads/{id}` – view lead detail.  
+  - `PUT /api/leads/{id}` – update lead (status, assignment, notes).  
+  - `DELETE /api/leads/{id}` – delete (or soft-delete).  
+- **Tasks**:  
+  - `GET /api/tasks` – list tasks (filter by user, lead).  
+  - `POST /api/tasks` – create task (fields: title, leadId, dueDate, assignedUser).  
+  - `PUT /api/tasks/{id}` – update status/due.  
+- **Reminders**:  
+  - `GET /api/reminders` – list reminders.  
+  - `POST /api/reminders` – schedule (type, datetime, leadId/taskId).  
+- **Templates**:  
+  - `GET /api/email-templates`, `POST /api/email-templates`, etc (name, subject, body).  
+  - `GET /api/whatsapp-templates`, etc (name, content).  
+
+*Sample JSON (REST request/response)*:
+
+```http
+POST /api/leads HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "+1234567890",
+  "source": "Website Form",
+  "assignedUserId": "605c5f8e93f1c25a3c1b8f92"
+}
+```
+```json
+{
+  "id": "60b8d2c4f1e2b45ae8293fda",
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "+1234567890",
+  "source": "Website Form",
+  "status": "New",
+  "assignedUserId": "605c5f8e93f1c25a3c1b8f92",
+  "createdAt": "2026-04-01T10:15:30Z"
+}
+```
+
+GraphQL (optional): A GraphQL API could allow flexible queries. Example schema snippet:  
+```graphql
+type Lead {
+  id: ID!
+  name: String!
+  status: String!
+  assignedUser: User
+  tasks: [Task!]!
+}
+type Query {
+  leads(status: String, assignedUser: ID): [Lead!]!
+}
+type Mutation {
+  createLead(name: String!, email: String!, phone: String!): Lead
+}
+```
+This supports requesting exactly needed fields (e.g. with nested tasks) and dynamic filters.
+
+## 6. n8n Automation Workflows  
+We’ll use n8n (self-hosted or cloud) for low-code automation. Key workflows include:
+
+- **Lead Capture & Enrichment:** A webhook (or Pabbly connect) listens for new leads (e.g. from web forms, chatbots). When triggered, it calls our `POST /api/leads` to create the lead, optionally enriches it (via third-party API), and assigns to a user.  
+- **Lead Assignment Notification:** On lead creation or status change, an n8n workflow sends notifications (email/SMS/WhatsApp) to the assigned rep with lead details. For example, it could send a WhatsApp template: name and query summary.  
+- **Follow-up & Task Automation:** A scheduled workflow runs daily to check for leads with upcoming follow-up dates (in DB). It auto-creates tasks or sends reminder messages via email/WhatsApp. For recurring reminders, n8n’s Cron nodes handle the schedule.  
+- **Welcome & Conversion Drips:** When a lead is converted to “Customer”, n8n can trigger a welcome email and update other systems (e.g. add to billing system).  
+- **Escalation Flows:** If a lead is unattended (no contact within X days), escalate via manager notification (Slack/email).  
+- **WhatsApp Chatbot (Optional):** Incoming WhatsApp messages can hit an n8n webhook node. The workflow parses intent (via keyword or NLP), possibly calls an AI node (e.g. OpenAI) for response, and sends replies over WhatsApp【42†L72-L79】. (Sample architecture: *Customer → WhatsApp API → n8n (route by intent) → WhatsApp API → Customer*【42†L72-L79】.)  
+
+These workflows connect CRM data to external channels seamlessly. For instance, a **Customer Support** workflow might detect when a lead’s status is “Inquiry” and automatically register a support ticket.  
+
+## 7. WhatsApp Integration  
+We support **WhatsApp Business API** for customer messaging. Options:  
+- **Official APIs (Meta/Business):** Via providers like Twilio or Vonage, or direct Meta Cloud API. This requires business verification and approval of message templates.  
+- **Third-party Providers:** Twilio/WhatsApp or Vonage (Nexmo) offer managed API services. They handle templates, rate-limits, and approvals (both use the official API underneath). We’ll likely integrate via Twilio’s Programmable WhatsApp or Vonage’s WhatsApp API for stability.  
+- **Rate Limits:** Meta enforces tiers based on quality rating. Unverified accounts start with a 250-message/24h limit【28†L38-L47】; verified businesses can scale up to 1K,10K,100K+ unique contacts depending on quality【28†L43-L52】. We must monitor limits to avoid blocking.  
+- **Opt-in/Consent:** Users must explicitly opt-in to receive WhatsApp messages. We will store opt-in consent (e.g. via web forms or opt-in keywords) and respect STOP messages immediately【44†L212-L218】. Any outgoing message must use pre-approved *templates* (for business-initiated messages)【44†L212-L218】.  
+- **Message Templates:** Use WhatsApp’s templating system (parameters like {customer_name}). Templates must be approved by Meta. The system will allow admins to create templates in CRM (as in Leadmanage)【53†L63-L68】.  
+- **Fallback Channels:** If WhatsApp fails (e.g. blocked, no internet), we fallback to SMS or email. Users’ preferred channel can be recorded.  
+- **Example:** A lead creation could trigger an n8n flow: `Send WhatsApp Template` node via Twilio’s API (JSON `{ to: "+123", template: "welcome_lead", variables: {...} }`).  
+
+**Security & Compliance:** Comply with WhatsApp policies and data privacy. Log all sent messages. Implement rate limiting in code (no more than ~1 msg/sec per number) and retry/backoff【44†L212-L218】.  
+
+## 8. Authentication & Authorization  
+- **JWT Auth:** Secure API with JWTs (access + refresh tokens). Sign with RS256 keys (private to auth service, public for others)【17†L174-L182】. Tokens in HTTP-only secure cookies or transmitted in `Authorization: Bearer`. For SPAs, consider short-lived JWT + refresh tokens.  
+- **Password Security:** Hash with bcrypt (or Argon2id) and enforce strong passwords【17†L119-L127】. Implement account lockout and login rate-limiting to prevent brute force.  
+- **OAuth2 & SSO:** Support login via OAuth2 (Google, Facebook) for end-users. For enterprise, implement SAML or OpenID Connect SSO (e.g. Azure AD, Okta) to let customers use their corporate identities. Use Passport.js or Auth0-like service for ease.  
+- **Roles & Scopes:** Embed user role/permissions in JWT claims. Backend checks on each request to enforce RBAC. Use principle of least privilege. Regularly audit user rights.
+
+## 9. Scalability & Infrastructure  
+- **Architecture:** Prefer microservices. For example, separate services could handle **auth**, **leads**, **tasks**, **templates**, **notifications**, etc. As Zoho notes, microservices break the app into independent modules, each deployed/scaled separately【48†L113-L121】. This allows scaling bottlenecks independently (e.g. SMS service vs user API). We may start with a modular monolith (single Node.js app) and refactor heavy parts into services later.  
+- **Containers & Orchestration:** Use Docker containers and Kubernetes (EKS/GKE) for deployment. Each service gets its own container for isolation. Use an API Gateway (or ingress) to route requests. Kubernetes auto-scales pods based on load.  
+- **Database:** MongoDB replica set for HA (nodes in multiple AZs). For very large scale, enable sharding on high-throughput collections (e.g. leads, messages).  
+- **Caching:** Deploy Redis for caching frequent queries (lead lists, config) and for session store (if using sessions). Use Redis for rate-limiting tokens (e.g. WhatsApp sends).  
+- **Load Balancing:** Public API endpoints behind a load balancer (e.g. AWS ALB). For WebSocket or streaming features (if any), use sticky sessions or cluster-aware mechanism.  
+- **Event Streaming:** For microservices, consider a message bus (RabbitMQ, Kafka) to decouple services (e.g. order service emits *lead_converted* event consumed by notification service).  
+- **Data Backups:** Scheduled backups of MongoDB (snapshot, oplog). Use managed DB (Mongo Atlas) for ease.  
+- **Performance:** Profile key APIs. Use CDN for frontend static content. Optimize database indexes (e.g. compound index on `{assignedUserId, status}` for quick lead queries).  
+
+## 10. Security & Compliance  
+- **Data Protection:** Encrypt data in transit (HTTPS/TLS everywhere). MongoDB at rest encryption (built-in or disk-level). Sensitive fields (passwords, secrets) encrypted in DB.  
+- **Input Validation:** Sanitize all inputs (prevent NoSQL injection). Use libraries like Joi or express-validator.  
+- **Audit Logging:** Log all user actions (login, data changes) and system events. Store logs securely (e.g. ELK). This aids compliance and forensics.  
+- **Privacy Laws:** If operating in GDPR regions or others, implement data subject rights (consent records, right-to-be-forgotten). For user communications (email/WhatsApp), track explicit consent and allow easy opt-out.【44†L212-L218】  
+- **2FA:** Offer optional two-factor auth (email or SMS OTP) for Admins or when logging from new devices.  
+- **Rate Limiting & DDoS:** API gateway should enforce rate limits (e.g. 100 requests/min per user) and protect against brute force (via IP blocking after failed logins).  
+- **Dependencies:** Regular dependency scans (`npm audit`) and update critical libraries.  
+- **Secrets Management:** Store secrets (API keys, DB passwords) in a vault (e.g. AWS Secrets Manager or Kubernetes secrets)【42†L83-L89】. Rotate periodically.  
+
+## 11. Testing, CI/CD, Monitoring  
+- **Testing:**  
+  - *Unit tests:* Backend (Mocha/Jest) covering business logic (lead assignment, auth).  
+  - *Integration tests:* API endpoints (Supertest) with test DB.  
+  - *E2E tests:* Frontend (React Testing Library, Cypress) for user flows (login, lead CRUD).  
+  - *Load tests:* Simulate heavy lead ingestion (Artillery) to ensure scalability.  
+- **CI/CD:** Use GitHub Actions (or Jenkins) pipeline: on push to main, run lint, tests, and build Docker images. On passing, auto-deploy to staging. Manual approval for production. Keep infrastructure-as-code (Terraform) for repeatability. Use branch strategy (feature branches, PR reviews).  
+- **Monitoring & Observability:**  
+  - *Metrics:* Expose Prometheus metrics (request rates, latencies, DB usage). Dashboards in Grafana for system health (CPU, memory) and business metrics (active leads).  
+  - *Logging:* Centralized logs with ELK (ElasticSearch + Kibana) or Loki. Log format structured (JSON) via Winston.  
+  - *Alerts:* Set up alerts on key indicators (high 500s, high latency, error rates). Use PagerDuty or similar for critical alerts.  
+  - *Tracing:* (Optional) Use distributed tracing (Jaeger/OpenTelemetry) for microservices to debug slow operations.  
+
+## 12. Effort, Milestones & Deliverables  
+
+| Phase      | Duration | Key Deliverables                                 | Dependencies                | Effort (team-weeks) |
+|-----------|----------|--------------------------------------------------|-----------------------------|---------------------|
+| **0 (Setup)**  | 4 wks   | Project setup, auth, DB schema, basic lead UI     | None                        |  2 devs × 4wk = 8  |
+| **1**      | 6 wks   | Lead CRUD UI/API, Task module, User management    | Phase 0                     |  2 devs × 6wk = 12 |
+| **2**      | 5 wks   | Reminders, email/WhatsApp templates, SMTP, basic n8n workflows | Phase 1                     |  2 devs × 5wk = 10 |
+| **3**      | 6 wks   | Webhooks/API integration, bulk import, reports    | Phase 2                     |  2 devs × 6wk = 12 |
+| **4**      | 4 wks   | Attendance/Leave modules, analytics enhancements, hardening | Phase 3                     |  2 devs × 4wk = 8  |
+| **Total**  | ~6 mo  | *Complete CRM system with core & advanced features* |                             | 50 dev-weeks (~$50k–$80k)【51†L191-L199】 |
+
+*Assumptions:* 2 full-time developers on features in parallel, plus 1 QA/DevOps part-time. Effort above is approximate; actual may vary by scope changes. The budget estimate aligns with industry (mid-tier custom CRM ~4–8mo, $40K–$80K【51†L191-L199】).  
+
+**Milestones:** End of each phase yields a demoable increment: e.g. Phase 1 Demo: lead/task management working with basic UI. Regular bi-weekly sprints with sprint reviews.  
+
+## 13. Integration Points & Third-Party Services  
+- **Telephony/Voice:** Integrate Twilio Programmable Voice for click-to-call and call logging. Twilio’s Node library lets us initiate calls from CRM (e.g. “Call Customer” button)【35†L19-L22】. For inbound calls, Twilio webhooks can log leads or start tasks.  
+- **SMS:** Use Twilio or Vonage SMS API for messages/fallback.  
+- **Payment & Orders:** If selling products/services, integrate Stripe (global) or Razorpay (India) for payments. Webhooks on payment success trigger order update.  
+- **Inventory:** For product-based CRM, integrate an ERP/inventory API (e.g. Odoo, SAP Business One). On order placement, reserve stock and record sale.  
+- **Calendars:** Sync with Google Calendar for scheduling tasks/meetings (OAuth to connect user’s calendar).  
+- **Email/SMS Providers:** SendGrid or AWS SES for emails. Twilio/Plivo for SMS (for OTPs or bulk SMS).  
+- **CRM/ERP Sync:** Optionally connect to Salesforce or Zoho via their APIs to import leads or sync contacts.  
+- **Analytics:** Google Analytics or Amplitude for usage tracking (within UI).  
+
+Prioritize connectors based on client needs: SMS/WhatsApp, email, accounting (QuickBooks or Xero), and marketing (Mailchimp) first.
+
+## 14. UI/UX Considerations  
+**Design Principles:** Clean, uncluttered interfaces with a focus on efficiency. Mobile-responsive design (or a dedicated mobile app later). Use a component library (e.g. Material-UI or Ant Design) for consistency. Accessibility (WCAG) and fast load times.  
+
+**Sample Screens:**  
+- **Dashboard:** Overview of KPIs (total leads, conversion rate, tasks due). Shortcut buttons for common actions.  
+- **Lead List:** Filterable/searchable table showing lead fields (name, status, source, assigned user, last contacted). Bulk actions (email, export).  
+- **Lead Detail:** Tabs for lead info, tasks, communication history (emails/WhatsApps logged), notes. Quick action buttons to add a task or send message.  
+- **Tasks/Reminders:** Calendar and list views. Ability to snooze or reschedule reminders.  
+- **Templates:** Library page to create/edit email/WhatsApp templates with preview.  
+- **User Management:** List of users, roles. Edit profile, reset password.  
+- **Reports/Analytics:** Charts for lead source performance, time-to-close, user productivity.  
+- **Settings:** Integration keys (API, SMTP, WhatsApp), billing (if SaaS), system configuration.  
+
+【52†embed_image】 The CRM’s dashboard should present key metrics at a glance. For example, the Leadmanage dashboard (above) shows **Total Contacts**, **New Follow-ups**, **Open/Closed Leads**, and task stats, with side navigation to modules like Leads, Tasks, Reminders, Templates, Reports, etc【1†L23-L31】【53†L25-L33】. Users should filter lists easily (by date, status, assignee) and the UI must keep data-entry forms streamlined.
+
+## 15. Workflows & Sequence Diagrams  
+
+**Lead Capture & Assignment Flow:** When a new lead is submitted (via web form or sales rep entry), the backend saves it and assigns a user. A notification is sent (email/WhatsApp) to the assignee. The sales rep then updates the lead’s status after outreach. Sequence example:  
+
+```mermaid
+sequenceDiagram
+    participant Form as Website/Form
+    participant API as BackendAPI
+    participant DB as Database
+    participant Sales as SalesRep
+
+    Form->>API: POST /api/leads (new lead data)
+    API->>DB: Insert Lead record
+    DB-->>API: Lead ID
+    API->>Sales: Send assignment notification
+    Sales->>API: PUT /api/leads/{id} (status="Contacted")
+    API->>DB: Update Lead status
+```
+
+**Lead Assignment Flow:** A manager can reassign leads. Sequence:  
+
+```mermaid
+sequenceDiagram
+    participant Manager as Admin/Manager
+    participant API as BackendAPI
+    participant DB as Database
+    participant Sales as NewAssignee
+
+    Manager->>API: PUT /api/leads/{id} (assignedUserId=Sales.id)
+    API->>DB: Update lead.assignedUser
+    API->>Sales: Notify of new lead assignment
+    Sales->>API: Acknowledge (optional)
+    API->>DB: Log assignment event
+```
+
+**Order Lifecycle (if applicable):** A lead is converted to a customer and places an order. Sequence:  
+
+```mermaid
+sequenceDiagram
+    participant UI as SalesUI
+    participant API as BackendAPI
+    participant DB as Database
+    participant Inv as InventorySvc
+    participant Pay as PaymentGateway
+
+    UI->>API: POST /api/orders (order details)
+    API->>DB: Create Order (status="Pending")
+    API->>Inv: Reserve stock
+    Pay->>API: Payment webhook (success)
+    API->>DB: Update Order (status="Paid")
+    API->>Inv: Confirm stock deduction
+    API->>DB: Create Invoice record
+    API->>UI: Return order confirmed
+```
+
+These diagrams capture the core workflows of leads and orders through the system.
+
+**Sources:** Feature list from Leadmanage.in【53†L25-L33】【53†L49-L54】. Best practices for auth (JWT, bcrypt) from security guides【17†L119-L127】【17†L174-L182】. n8n+WhatsApp workflow example【42†L72-L79】【44†L212-L218】. Architecture guidance for microservices and scaling【48†L113-L121】【48†L229-L234】. CRM development cost from industry analysis【51†L191-L199】. All cited sources help validate the design choices and ensure a robust solution.

@@ -2,44 +2,63 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const routes = require('./routes');
+const errorHandler = require('./middleware/errorHandler');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Trigger redeploy - Fix WebhookLog schema validation issue
-// Middleware - Enhanced CORS for WordPress Elementor and external webhooks
+// Middleware
 app.use(cors({
-  origin: '*', // Allow all origins (WordPress, Elementor, external services)
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   credentials: false,
   optionsSuccessStatus: 200
 }));
 
-// Handle preflight requests
 app.options('*', cors());
-
-// Parse JSON and URL-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
-connectDB();
+// MongoDB Connection + Seed
+const User = require('./models/User');
 
-// Health Check
-app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', version: '1.0.9' });
-});
+async function seedSuperAdmin() {
+  try {
+    const existingAdmin = await User.findOne({ role: 'super_admin' });
+    const email = process.env.ADMIN_EMAIL || 'admin@nexus.com';
+    const password = process.env.ADMIN_PASSWORD || 'admin123';
 
-// App routing
+    if (!existingAdmin) {
+      await User.create({
+        name: 'Super Admin',
+        email,
+        password,
+        role: 'super_admin',
+        isActive: true,
+      });
+      console.log(`🔐 Super admin seeded: ${email} / ${password} (New)`);
+    } else {
+      // Force update password and activation
+      existingAdmin.password = password;
+      existingAdmin.isActive = true;
+      await existingAdmin.save();
+      console.log(`ℹ️ Super admin existed. Password reset and account RE-ACTIVATED: ${email}`);
+    }
+  } catch (err) {
+    console.error('⚠️  Critical seeding error:', err);
+  }
+}
+
+// Routes
 app.use('/api', routes);
 
-// Alternative endpoint path for /v1/webhook
-app.post('/v1/webhook', async (req, res) => {
-  // Redirect to main webhook handler
-  req.url = '/api/webhook';
-  return app._router.handle(req, res);
-});
+// Global error handler
+app.use(errorHandler);
 
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+// Start Server
+connectDB().then(() => {
+  seedSuperAdmin();
+  app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+});
